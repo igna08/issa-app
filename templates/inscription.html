@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Inscription Form{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h1 class="mt-5 mb-4 text-center">Formulario de Inscripción</h1>
+        <form method="post">
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+                {{ form.nombre.label(class="form-label") }}
+                {{ form.nombre(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                {{ form.apellido.label(class="form-label") }}
+                {{ form.apellido(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                {{ form.telefono.label(class="form-label") }}
+                {{ form.telefono(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                {{ form.wit.label(class="form-label") }}
+                {{ form.wit(class="form-control") }}
+            </div>
+            <div class="mb-3">
+                {{ form.tipo_inscripcion.label(class="form-label") }}
+                {{ form.tipo_inscripcion(class="form-select") }}
+            </div>
+            <div class="mb-3">
+                {{ form.curso_id.label(class="form-label") }}
+                {{ form.curso_id(class="form-select") }}
+            </div>
+            <div class="d-grid">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('tipo_inscripcion').addEventListener('change', function() {
+        const courseSelect = document.getElementById('curso_id');
+        const selectedType = this.value;
+        courseSelect.innerHTML = '<option selected disabled value="">Choose...</option>';
+
+        if (selectedType) {
+            fetch(`/api/courses/${selectedType}`)
+                .then(response => response.json())
+                .then(courses => {
+                    courses.forEach(course => {
+                        const option = document.createElement('option');
+                        option.value = course.id;
+                        option.textContent = course.name;
+                        courseSelect.appendChild(option);
+                    });
+                });
+        }
+    });
+    // Trigger change event on page load to populate courses if a type is pre-selected
+    document.getElementById('tipo_inscripcion').dispatchEvent(new Event('change'));
+</script>
+{% endblock %}
