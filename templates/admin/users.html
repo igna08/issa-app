@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre Completo</th>
+                <th>Email</th>
+                <th>Teléfono</th>
+                <th>Curso Inscrito</th>
+                <th>Estado del Pago</th>
+                <th>Fecha de Inscripción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.nombre }} {{ user.apellido }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.telefono }}</td>
+                <td>{{ user.curso.nombre }}</td>
+                <td>
+                    {% if user.estado_pago == 'Pagado' %}
+                        <span class="badge bg-success">{{ user.estado_pago }}</span>
+                    {% elif user.estado_pago == 'Pendiente' %}
+                        <span class="badge bg-warning text-dark">{{ user.estado_pago }}</span>
+                    {% else %}
+                        <span class="badge bg-danger">{{ user.estado_pago }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ user.fecha_inscripcion.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="text-center">No hay usuarios inscritos.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('add_course') }}" class="btn btn-primary">Añadir Nuevo Curso</a>
+</div>
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tipo</th>
+                <th>Nombre</th>
+                <th>Precio</th>
+                <th>Cupo Máximo</th>
+                <th>Fecha Inicio</th>
+                <th>Fecha Fin</th>
+                <th class="text-end">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for course in courses %}
+            <tr>
+                <td>{{ course.id }}</td>
+                <td>{{ course.tipo }}</td>
+                <td>{{ course.nombre }}</td>
+                <td>{{ course.precio }}</td>
+                <td>{{ course.cupo_maximo if course.cupo_maximo is not none else 'N/A' }}</td>
+                <td>{{ course.fecha_inicio.strftime('%Y-%m-%d') if course.fecha_inicio else 'N/A' }}</td>
+                <td>{{ course.fecha_fin.strftime('%Y-%m-%d') if course.fecha_fin else 'N/A' }}</td>
+                <td class="text-end">
+                    <a href="{{ url_for('edit_course', course_id=course.id) }}" class="btn btn-sm btn-info">Editar</a>
+                    <form action="{{ url_for('delete_course', course_id=course.id) }}" method="post" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Estás seguro de que quieres eliminar este curso?')">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" class="text-center">No hay cursos para mostrar.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,3 +1,7 @@
+import os
+# Set dummy env var before importing app to prevent SDK error
+os.environ['MERCADOPAGO_ACCESS_TOKEN'] = 'dummy-token-for-scripts'
+
 from app import app, db, Administrador, bcrypt
 
 with app.app_context():
@@ -18,4 +22,4 @@ with app.app_context():
         )
         db.session.add(new_admin)
         db.session.commit()
-        print(f"Admin user {admin_name} created successfully.")
+        print(f"Admin user '{admin_name}' created successfully with email '{admin_email}'.")

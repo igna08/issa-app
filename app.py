@@ -8,18 +8,24 @@ from wtforms.validators import DataRequired, Email, Optional
 import datetime
 import mercadopago
 from functools import wraps
+import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///school.db'
-app.config['SECRET_KEY'] = 'your_secret_key'
-app.config['MERCADOPAGO_ACCESS_TOKEN'] = 'YOUR_ACCESS_TOKEN'
+# Absolute path for DB to avoid ambiguity
+basedir = os.path.abspath(os.path.dirname(__file__))
+db_path = os.path.join(basedir, 'instance', 'school.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', f'sqlite:///{db_path}')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'a-very-secret-key-for-dev')
+app.config['MERCADOPAGO_ACCESS_TOKEN'] = os.getenv('MERCADOPAGO_ACCESS_TOKEN')
 
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'your_email@gmail.com'
-app.config['MAIL_PASSWORD'] = 'your_app_password'
-app.config['MAIL_DEFAULT_SENDER'] = 'your_email@gmail.com'
+# Email Configuration
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'true').lower() in ['true', '1', 't']
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', os.getenv('MAIL_USERNAME'))
+
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -64,6 +70,7 @@ class Notificacion(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     fecha = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)
     leida = db.Column(db.Boolean, default=False, nullable=False)
+    usuario = db.relationship('Usuario', backref=db.backref('notificaciones', lazy=True))
 
 class Administrador(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -113,13 +120,23 @@ def send_email(to, subject, template):
 
 # Public routes...
 @app.route('/')
-def hello_world():
-    return 'Hello, World!'
+def home():
+    courses = Curso.query.order_by(Curso.nombre).all()
+    return render_template('home.html', courses=courses)
 
 @app.route('/inscripcion', methods=['GET', 'POST'])
 def inscripcion():
     form = InscriptionForm()
     form.curso_id.choices = [(c.id, c.nombre) for c in Curso.query.order_by('nombre').all()]
+
+    if request.method == 'GET':
+        course_id = request.args.get('course_id', type=int)
+        if course_id:
+            # Check if course exists
+            course = Curso.query.get(course_id)
+            if course:
+                form.curso_id.data = course_id
+                form.tipo_inscripcion.data = course.tipo
 
     if form.validate_on_submit():
         # ... (form processing logic)
@@ -173,7 +190,13 @@ def payment_webhook():
                 user.estado_pago = 'Pagado'
                 new_pago = Pago(usuario_id=user.id, curso_id=user.curso_id, estado_pago='Pagado', referencia=payment_id)
                 db.session.add(new_pago)
+
+                # Create notification for admin panel
+                new_notification = Notificacion(tipo='Nueva Inscripción', usuario_id=user.id)
+                db.session.add(new_notification)
+
                 db.session.commit()
+
                 # Send emails
                 user_subject = "Inscripción confirmada"
                 user_html = f"<p>Hola {user.nombre},</p><p>Tu inscripción al curso {user.curso.nombre} ha sido confirmada.</p>"
@@ -217,10 +240,22 @@ def admin_logout():
 @app.route('/admin/dashboard')
 @admin_required
 def admin_dashboard():
-    users = Usuario.query.all()
+    users = Usuario.query.order_by(Usuario.fecha_inscripcion.desc()).all()
     courses = Curso.query.all()
-    notifications = Notificacion.query.all()
-    return render_template('admin/dashboard.html', users=users, courses=courses, notifications=notifications)
+    notifications = Notificacion.query.order_by(Notificacion.fecha.desc()).all()
+    return render_template('admin/dashboard.html', users=users, courses=courses, notifications=notifications, title="Dashboard")
+
+@app.route('/admin/courses')
+@admin_required
+def admin_courses():
+    courses = Curso.query.order_by(Curso.nombre).all()
+    return render_template('admin/courses.html', courses=courses, title="Gestionar Cursos")
+
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    users = Usuario.query.order_by(Usuario.fecha_inscripcion.desc()).all()
+    return render_template('admin/users.html', users=users, title="Usuarios Inscritos")
 
 # Course management
 @app.route('/admin/course/add', methods=['GET', 'POST'])
@@ -266,7 +301,27 @@ def delete_course(course_id):
     db.session.delete(course)
     db.session.commit()
     flash('Course deleted successfully.', 'danger')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('admin_courses'))
+
+# Context processor to inject notifications into all admin templates
+@app.context_processor
+def inject_notifications():
+    if 'admin_id' in session:
+        unread_count = Notificacion.query.filter_by(leida=False).count()
+        # Fetch last 5 notifications for the dropdown
+        recent_notifications = Notificacion.query.order_by(Notificacion.fecha.desc()).limit(5).all()
+        return dict(unread_notifications_count=unread_count, recent_notifications=recent_notifications)
+    return dict()
+
+@app.route('/admin/notification/mark-read/<int:notification_id>')
+@admin_required
+def mark_notification_read(notification_id):
+    notification = Notificacion.query.get_or_404(notification_id)
+    notification.leida = True
+    db.session.commit()
+    # Redirect to the main users page, where the admin can see the user who enrolled
+    flash(f"Notificación marcada como leída.", "success")
+    return redirect(url_for('admin_users'))
 
 if __name__ == '__main__':
     app.run(debug=True)
