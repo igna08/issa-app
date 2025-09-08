@@ -2,10 +2,11 @@
 
 {% block title %}{{ title }}{% endblock %}
 
+{% block page_title %}{{ title }}{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <h1 class="mt-5 mb-4">{{ title }}</h1>
+<div class="row">
+    <div class="col-md-8">
         <form method="post">
             {{ form.hidden_tag() }}
             <div class="mb-3">
@@ -26,15 +27,15 @@
             </div>
             <div class="mb-3">
                 {{ form.fecha_inicio.label(class="form-label") }}
-                {{ form.fecha_inicio(class="form-control", type="date") }}
+                {{ form.fecha_inicio(class="form-control", value=form.fecha_inicio.data.strftime('%Y-%m-%d') if form.fecha_inicio.data else '') }}
             </div>
             <div class="mb-3">
                 {{ form.fecha_fin.label(class="form-label") }}
-                {{ form.fecha_fin(class="form-control", type="date") }}
+                {{ form.fecha_fin(class="form-control", value=form.fecha_fin.data.strftime('%Y-%m-%d') if form.fecha_fin.data else '') }}
             </div>
-            <div class="d-grid">
+            <div class="d-grid gap-2 d-md-flex justify-content-md-start">
                 {{ form.submit(class="btn btn-primary") }}
-                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary mt-2">Cancel</a>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Cancelar</a>
             </div>
         </form>
     </div>

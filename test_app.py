@@ -1,5 +1,9 @@
 import unittest
 import os
+
+# Set a dummy environment variable for the access token BEFORE importing the app
+os.environ['MERCADOPAGO_ACCESS_TOKEN'] = 'dummy-token-for-testing'
+
 from app import app, db, Usuario, Curso, Administrador, bcrypt
 
 class BasicTestCase(unittest.TestCase):
@@ -7,20 +11,21 @@ class BasicTestCase(unittest.TestCase):
     def setUp(self):
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'test.db')
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+        self.app_context = app.app_context()
+        self.app_context.push()
         self.app = app.test_client()
-        with app.app_context():
-            db.create_all()
-            # Add a test admin user
-            hashed_password = bcrypt.generate_password_hash('testpassword').decode('utf-8')
-            admin = Administrador(nombre='Test Admin', email='admin@test.com', password=hashed_password)
-            db.session.add(admin)
-            db.session.commit()
+        db.create_all()
+        # Add a test admin user
+        hashed_password = bcrypt.generate_password_hash('testpassword').decode('utf-8')
+        admin = Administrador(nombre='Test Admin', email='admin@test.com', password=hashed_password)
+        db.session.add(admin)
+        db.session.commit()
 
     def tearDown(self):
-        with app.app_context():
-            db.session.remove()
-            db.drop_all()
+        db.session.remove()
+        db.drop_all()
+        self.app_context.pop()
 
     def login(self, email, password):
         return self.app.post('/admin/login', data=dict(
